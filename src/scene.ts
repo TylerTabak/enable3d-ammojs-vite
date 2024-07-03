@@ -1,7 +1,9 @@
-import { Project, Scene3D, PhysicsLoader, THREE } from "enable3d";
+import { Project, Scene3D, PhysicsLoader, THREE, ExtendedMesh, ExtendedObject3D } from "enable3d";
+import { Tween, Easing, update as updateTween } from "@tweenjs/tween.js";
 
 class MainScene extends Scene3D {
-  box: any;
+  character: ExtendedObject3D = new ExtendedObject3D(); // reference to the green sphere
+  isJumping: boolean = false;
   constructor() {
     //@ts-ignore
     super("MainScene");
@@ -41,28 +43,95 @@ class MainScene extends Scene3D {
     this.physics.debug?.enable();
 
     // position camera
-    this.camera.position.set(10, 10, 20);
+    this.camera.position.set(0, 10, 20);
 
-    // blue box
-    this.box = this.add.box({ y: 2 }, { lambert: { color: "deepskyblue" } });
+    // Character
+    const headMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Red color for head
+    const headGeometry = new THREE.SphereGeometry(1, 32, 32); // Parameters: radius, widthSegments, heightSegments
+    const characterMesh = new ExtendedMesh(headGeometry, headMaterial);
+    this.character.add(characterMesh);
+    this.character.position.set(0,1,0);
+    this.scene.add(this.character);
 
-    // pink box
-    this.physics.add.box({ y: 10 }, { lambert: { color: "hotpink" } });
-
-    // green sphere
-    const geometry = new THREE.SphereGeometry(0.8, 16, 16);
-    const material = new THREE.MeshLambertMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    cube.position.set(0.2, 3, 0);
-    this.scene.add(cube);
-    // add physics to an existing object
-    //@ts-ignore
-    this.physics.add.existing(cube);
+    // BOX
+    const box = new ExtendedObject3D();
+    box.position.set(3, 1, 0); // Adjust coordinates to place the box beside the character
+    const boxGeometry = new THREE.BoxGeometry(1, 1, 1); // Adjust dimensions as needed
+    const boxMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 }); // Adjust color as needed
+    const boxMesh = new ExtendedMesh(boxGeometry, boxMaterial); 
+    box.add(boxMesh);
+    box.position.set(0, 0, 0);
+    this.scene.add(box);
+    const boxOptions = { shape: "box", width: 1, height: 1, depth: 1 }; // Adjust dimensions to match boxGeometry
+    
+    this.physics.add.existing(box, boxOptions);
+    // Add keyboard controls
+    this.addKeyboardControls();
   }
 
   update() {
-    this.box.rotation.x += 0.01;
-    this.box.rotation.y += 0.01;
+    updateTween();
+  }
+
+  addKeyboardControls() {
+    window.addEventListener('keydown', this.handleKeyDown.bind(this));
+  }
+
+  handleKeyDown(event: KeyboardEvent) {
+    const moveDistance = 1; // distance to move the sphere
+    const jumpHeight = 3; // height to jump
+    const jumpDuration = 250; // duration of the jump animation in milliseconds
+    console.log(event.key.toString())
+    switch (event.key) {
+      case 'ArrowUp':
+      case 'w':
+        this.character.position.z -= moveDistance;
+        // run animation
+        console.log('ArrowUp pressed');
+        break;
+      case 'ArrowDown':
+      case 's':
+        this.character.position.z += moveDistance;
+        console.log('ArrowDown pressed');
+        break;
+      case 'ArrowLeft':
+      case 'a':
+        this.character.position.x -= moveDistance;
+        console.log('ArrowLeft pressed');
+        break;
+      case 'ArrowRight':
+      case 'd':
+        this.character.position.x += moveDistance;
+        console.log('ArrowRight pressed');
+        break;
+      case ' ': // Handle spacebar press for jump
+       event.preventDefault();
+        if (!this.isJumping) {
+          this.isJumping = true;
+          const initialY = this.character.position.y;
+          const targetY = initialY + jumpHeight;
+
+          // Use Tween.js to animate the jump
+          new Tween(this.character.position)
+            .to({ y: targetY }, jumpDuration)
+            .easing(Easing.Quadratic.Out)
+            .onComplete(() => {
+              // Jump animation complete, now animate back down
+              new Tween(this.character.position)
+                .to({ y: initialY }, jumpDuration)
+                .easing(Easing.Quadratic.In)
+                .onComplete(() => {
+                  this.isJumping = false; // Reset jumping flag
+                })
+                .start();
+            })
+            .start();
+        }
+        console.log('Spacebar pressed');
+        break;
+      default:
+        break;
+    }
   }
 }
 
